@@ -9,13 +9,16 @@
 #include "Arduino.h"
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
+#include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <ArduinoJson.h>
 #include <EEPROM.h>
-
+#include <ESP8266HTTPClient.h>
 const char *ssid = "Personal-0C0-2.4GHz";
 const char *password = "3B779BD0C0";
+const char* serverName = "http://192.168.0.10:8080/api/v1/register/device";
+WiFiClient client;
 String DeviceId="";
 ESP8266WebServer server(80);
 // constants won't change :
@@ -54,6 +57,7 @@ void handleRegisterMobile(){
   }
   String body = server.arg("plain");
 //coordenadas fransisco de haro 
+//-27.38838088127979, -55.904381445366084
   // Parse JSON
   StaticJsonDocument<200> doc;
   DeserializationError error = deserializeJson(doc, body);
@@ -75,7 +79,7 @@ void handleRegisterMobile(){
       return;
   }
   if (!doc.containsKey("deviceid") || !doc["deviceid"].is<String>()) {
-    server.send(400, "application/json", "{\"error\":\"Invalid or missing 'ygeo' field\"}");
+    server.send(400, "application/json", "{\"error\":\"Invalid or missing 'deviceid' field\"}");
     return;
 }
 
@@ -93,9 +97,33 @@ void handleRegisterMobile(){
     Serial.println(ygeo);
     Serial.print("deviceid: ");
     Serial.println(deviceid);
+    HTTPClient http;
+    http.begin(client,serverName);
+    http.addHeader("Content-Type", "application/json");
+
+    // Create JSON object
+    StaticJsonDocument<200> jsonDoc;
+    jsonDoc["deviceid"] =deviceid; // Replace with actual temperature reading
+    jsonDoc["xposition"]=xgeo;
+    jsonDoc["yposition"]=ygeo;
+    jsonDoc["mobileid"] = idmobile;
+    jsonDoc["status"]="CREATED";
+    String requestBody;
+    serializeJson(jsonDoc, requestBody);
+    
+    Serial.println(requestBody);
+    int httpResponseCode = http.POST(requestBody);
+
+    if (httpResponseCode > 0) {
+      String response = http.getString();
+      Serial.println(httpResponseCode);
+      Serial.println(response);
+    } else {
+      Serial.print("Error on sending POST: ");
+      Serial.println(httpResponseCode);
+    }
 
 
- 
   // Process the body as needed
   server.send(200, "application/json", "{\"message\":\"POST request received\", \"body\":\"" + body + "\"}");
 
@@ -186,6 +214,28 @@ void handlePostRequest()
   server.send(200, "application/json", "{\"message\":\"POST request received\", \"body\":\"" + body + "\"}");
 }
 
+
+void handleGetInfoDevice(){
+  if (!server.hasHeader("Authorization"))
+  {
+    server.send(401, "text/plain", "Unauthorized");
+    return;
+  }
+
+  String authHeader = server.header("Authorization");
+  if (authHeader != "Bearer your_token")
+  {
+    server.send(403, "text/plain", "Forbidden");
+    return;
+  }
+   String data= DeviceId;
+
+  server.send(200, "application/json", "{\"info\":\""+  data    +"\"}");
+}
+
+
+
+
 void handleAuthorizedRequest(){
   if (!server.hasHeader("Authorization"))
   {
@@ -233,6 +283,7 @@ void restServerRouting(){
   server.on("/postEndpoint", HTTP_POST, handlePostRequest); // Declare POST handler
   server.on("/postEndpointii", HTTP_POST, handlePostRequestii);
   server.on("/registermobile", HTTP_POST, handleRegisterMobile);
+  server.on("/device",HTTP_GET,handleGetInfoDevice);
 }
 
 
