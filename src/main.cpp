@@ -17,6 +17,8 @@
 #include <ESP8266HTTPClient.h>
 const char *ssid = "Personal-0C0-2.4GHz";
 const char *password = "3B779BD0C0";
+const char* passap="1234567";
+const char* ssidap="ds-abcdefghijkl";
 const char* serverName = "http://192.168.0.10:8080/api/v1/register/device";
 WiFiClient client;
 String DeviceId="";
@@ -33,6 +35,35 @@ public:
 
   MyData(const String &name, int age) : name(name), age(age) {}
 };
+
+
+
+void handleChangeStatMode(){
+  if (!server.hasHeader("Authorization"))
+  {
+    server.send(401, "text/plain", "Unauthorized");
+    return;
+  }
+
+  String authHeader = server.header("Authorization");
+  if (authHeader != "Bearer your_token")
+  {
+    server.send(403, "text/plain", "Forbidden");
+    return;
+  }
+  server.send(200, "text/plain", "Cambiando a modo STA...");
+  WiFi.softAPdisconnect(true);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  if (WiFi.waitForConnectResult() == WL_CONNECTED) {
+    Serial.println("Conectado a la red STA");
+    Serial.print("IP del STA: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("Error al conectar en modo STA");
+  }
+  server.send(200, "application/json", "{\"message\":\"Switch State Mode success\", \"body\": \"Switch State Mode success\"  }");
+}
 
 // Handle POST request with JSON body
 // Handler que va a recibir el body del mobile 
@@ -118,6 +149,7 @@ void handleRegisterMobile(){
       String response = http.getString();
       Serial.println(httpResponseCode);
       Serial.println(response);
+      
     } else {
       Serial.print("Error on sending POST: ");
       Serial.println(httpResponseCode);
@@ -291,9 +323,15 @@ void setup(void)
 {
   Serial.begin(115200);
   EEPROM.begin(1024); 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  Serial.println("");
+ 
+ 
+  // Configurar modo AP
+  WiFi.mode(WIFI_AP);
+  WiFi.begin(ssidap, passap);
+  Serial.println("Modo AP activado");
+  Serial.print("IP del AP: ");
+  Serial.println(WiFi.softAPIP());
+
 
   String readeeprom = readStringFromEEPROM(0);
   Serial.println(readeeprom);
