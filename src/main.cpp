@@ -17,9 +17,13 @@
 #include <ESP8266HTTPClient.h>
 const char *ssid = "Personal-0C0-2.4GHz";
 const char *password = "3B779BD0C0";
-const char* passap="1234567";
-const char* ssidap="ds-abcdefghijkl";
+const char* passap="3B779BD0C0";
+const char* ssidap="DETS-ID1";
 const char* serverName = "http://192.168.0.10:8080/api/v1/register/device";
+// Dirección IP estática y máscara de subred
+IPAddress apIP(192, 168, 4, 1); // Dirección IP estática
+IPAddress subnet(255, 255, 255, 0); // Máscara de subred
+
 WiFiClient client;
 String DeviceId="";
 ESP8266WebServer server(80);
@@ -316,6 +320,7 @@ void restServerRouting(){
   server.on("/postEndpointii", HTTP_POST, handlePostRequestii);
   server.on("/registermobile", HTTP_POST, handleRegisterMobile);
   server.on("/device",HTTP_GET,handleGetInfoDevice);
+  server.on("/switchstate",handleChangeStatMode);
 }
 
 
@@ -327,11 +332,11 @@ void setup(void)
  
   // Configurar modo AP
   WiFi.mode(WIFI_AP);
-  WiFi.begin(ssidap, passap);
-  Serial.println("Modo AP activado");
-  Serial.print("IP del AP: ");
+  WiFi.softAPConfig(apIP, apIP, subnet); 
+  WiFi.softAP(ssidap, passap);
+  Serial.println("Red WiFi creada");
+  Serial.print("IP address: ");
   Serial.println(WiFi.softAPIP());
-
 
   String readeeprom = readStringFromEEPROM(0);
   Serial.println(readeeprom);
@@ -349,24 +354,14 @@ void setup(void)
 
 
 
-  // Wait for connection
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+ 
 
   // Activate mDNS this is used to be able to connect to the server
   // with local DNS hostmane esp8266.local
-  if (MDNS.begin("esp8266"))
-  {
-    Serial.println("MDNS responder started");
-  }
+  //if (MDNS.begin("esp8266"))
+  //{
+  //  Serial.println("MDNS responder started");
+  //}
 
   // Set server routing
   restServerRouting();
@@ -380,6 +375,7 @@ void setup(void)
   // Start server
   server.begin();
   Serial.println("HTTP server started");
+  
 }
 
 void loop(void)
